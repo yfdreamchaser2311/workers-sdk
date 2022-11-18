@@ -861,7 +861,7 @@ async function getBindings(
 			...(args.r2 || []),
 		],
 		dispatch_namespaces: configParam.dispatch_namespaces,
-		services: configParam.services,
+		services: [...(configParam.services || []), ...(args.services || [])],
 		unsafe: configParam.unsafe?.bindings,
 		logfwdr: configParam.logfwdr,
 		d1_databases: identifyD1BindingsAsBeta([
