@@ -12,7 +12,6 @@ import { runWrangler } from "./helpers/run-wrangler";
 import type { Deployment, Project, UploadPayloadFile } from "../pages/types";
 import type { RestRequest } from "msw";
 import type { RequestInit } from "undici";
-import { FormData } from "undici";
 
 function mockGetToken(jwt: string) {
 	msw.use(
@@ -1659,7 +1658,7 @@ describe("pages", () => {
 						},
 					]);
 
-					return res(
+					return res.once(
 						ctx.status(200),
 						ctx.json({
 							success: true,
@@ -1876,7 +1875,7 @@ describe("pages", () => {
 						},
 					]);
 
-					return res(
+					return res.once(
 						ctx.status(200),
 						ctx.json({
 							success: true,
@@ -1990,7 +1989,7 @@ and that at least one include rule is provided.
 						},
 					]);
 
-					return res(
+					return res.once(
 						ctx.status(200),
 						ctx.json({
 							success: true,
@@ -2185,7 +2184,7 @@ and that at least one include rule is provided.
 						},
 					]);
 
-					return res(
+					return res.once(
 						ctx.status(200),
 						ctx.json({
 							success: true,
@@ -2297,7 +2296,7 @@ and that at least one include rule is provided.
 						},
 					]);
 
-					return res(
+					return res.once(
 						ctx.status(200),
 						ctx.json({
 							success: true,
@@ -2383,7 +2382,7 @@ and that at least one include rule is provided.
 		});
 	});
 
-	describe("project upload", () => {
+	describe.only("project upload", () => {
 		const ENV_COPY = process.env;
 
 		mockAccountId();
@@ -2396,48 +2395,62 @@ and that at least one include rule is provided.
 		});
 
 		afterEach(() => {
-			unsetAllMocks();
 			process.env = ENV_COPY;
 		});
 
-		it("should upload a directory of files with a provided JWT", async () => {
+		it.only("should upload a directory of files with a provided JWT", async () => {
 			writeFileSync("logo.png", "foobar");
 
-			setMockResponse(
-				"/pages/assets/check-missing",
-				"POST",
-				async (_, init) => {
-					const body = JSON.parse(init.body as string) as { hashes: string[] };
-					assertLater(() => {
-						expect(init.headers).toMatchObject({
-							Authorization: "Bearer <<funfetti-auth-jwt>>",
-						});
-						expect(body).toMatchObject({
-							hashes: ["2082190357cfd3617ccfe04f340c6247"],
-						});
-					});
-					return body.hashes;
-				}
-			);
+			msw.use(
+				rest.post("*/pages/assets/check-missing", async (req, res, ctx) => {
+					const body = (await req.json()) as {
+						hashes: string[];
+					};
 
-			setMockResponse("/pages/assets/upload", "POST", async (_, init) => {
-				assertLater(() => {
-					expect(init.headers).toMatchObject({
-						Authorization: "Bearer <<funfetti-auth-jwt>>",
+					expect(req.headers.get("Authorization")).toBe(
+						"Bearer <<funfetti-auth-jwt>>"
+					);
+					expect(body).toMatchObject({
+						hashes: ["2082190357cfd3617ccfe04f340c6247"],
 					});
-					const body = JSON.parse(init.body as string) as UploadPayloadFile[];
-					expect(body).toMatchObject([
+
+					return res.once(
+						ctx.status(200),
+						ctx.json({
+							success: true,
+							errors: [],
+							messages: [],
+							result: body.hashes,
+						})
+					);
+				}),
+				rest.post("*/pages/assets/upload", async (req, res, ctx) => {
+					expect(req.headers.get("Authorization")).toBe(
+						"Bearer <<funfetti-auth-jwt>>"
+					);
+
+					expect(await req.json()).toMatchObject([
 						{
+							base64: true,
 							key: "2082190357cfd3617ccfe04f340c6247",
-							value: Buffer.from("foobar").toString("base64"),
 							metadata: {
 								contentType: "image/png",
 							},
-							base64: true,
+							value: "Zm9vYmFy",
 						},
 					]);
-				});
-			});
+
+					return res.once(
+						ctx.status(200),
+						ctx.json({
+							success: true,
+							errors: [],
+							messages: [],
+							result: null,
+						})
+					);
+				})
+			);
 
 			await runWrangler("pages project upload .");
 
@@ -2448,7 +2461,7 @@ and that at least one include rule is provided.
 		      `);
 		});
 
-		it("should avoid uploading some files", async () => {
+		it.only("should avoid uploading some files", async () => {
 			mkdirSync("some_dir/node_modules", { recursive: true });
 			mkdirSync("some_dir/functions", { recursive: true });
 
@@ -2466,98 +2479,112 @@ and that at least one include rule is provided.
 			mkdirSync("functions");
 			writeFileSync("functions/foo.js", "func");
 
-			setMockResponse(
-				"/pages/assets/check-missing",
-				"POST",
-				async (_, init) => {
-					const body = JSON.parse(init.body as string) as { hashes: string[] };
-					assertLater(() => {
-						expect(init.headers).toMatchObject({
-							Authorization: "Bearer <<funfetti-auth-jwt>>",
-						});
-						expect(body).toMatchObject({
-							hashes: [
-								"2082190357cfd3617ccfe04f340c6247",
-								"95dedb64e6d4940fc2e0f11f711cc2f4",
-								"09a79777abda8ccc8bdd51dd3ff8e9e9",
-							],
-						});
+			// Accumulate multiple requests then assert afterwards
+			msw.restoreHandlers();
+
+			const requests: RestRequest[] = [];
+			msw.use(
+				rest.post("*/pages/assets/check-missing", async (req, res, ctx) => {
+					const body = JSON.parse((await req.json()) as string) as {
+						hashes: string[];
+					};
+
+					expect(req.headers.get("Authorization")).toBe(
+						"Bearer <<funfetti-auth-jwt>>"
+					);
+					expect(body).toMatchObject({
+						hashes: [
+							"2082190357cfd3617ccfe04f340c6247",
+							"95dedb64e6d4940fc2e0f11f711cc2f4",
+							"09a79777abda8ccc8bdd51dd3ff8e9e9",
+						],
 					});
-					return body.hashes;
-				}
+
+					return res.once(
+						ctx.status(200),
+						ctx.json({
+							success: true,
+							errors: [],
+							messages: [],
+							result: body.hashes,
+						})
+					);
+				}),
+				rest.post("*/pages/assets/upload", (req, res, ctx) => {
+					requests.push(req);
+
+					return res.once(
+						ctx.status(200),
+						ctx.json({
+							success: true,
+							errors: [],
+							messages: [],
+							result: "I MADE IT",
+						})
+					);
+				})
 			);
 
-			// Accumulate multiple requests then assert afterwards
-			const requests: RequestInit[] = [];
-			setMockRawResponse("/pages/assets/upload", "POST", async (_, init) => {
-				requests.push(init);
+			expect(requests.length).toBe(3);
 
-				return createFetchResult(null, true);
-			});
+			const sortedRequests = await Promise.all(
+				requests.map(async (req) => await req.json())
+			).then((reqs) =>
+				reqs.sort((a, b) => {
+					const aKey = a.key as string;
+					const bKey = b.key as string;
 
-			assertLater(() => {
-				expect(requests.length).toBe(3);
+					return aKey.localeCompare(bKey);
+				})
+			);
 
-				const sortedRequests = requests.sort((a, b) => {
-					return (JSON.parse(a.body as string)[0].key as string).localeCompare(
-						JSON.parse(b.body as string)[0].key as string
-					);
-				});
+			expect(sortedRequests[0].headers.get("Authorization")).toBe(
+				"Bearer <<funfetti-auth-jwt>>"
+			);
 
-				expect(sortedRequests[0].headers).toMatchObject({
-					Authorization: "Bearer <<funfetti-auth-jwt>>",
-				});
-
-				let body = JSON.parse(
-					sortedRequests[0].body as string
-				) as UploadPayloadFile[];
-				expect(body).toMatchObject([
-					{
-						key: "09a79777abda8ccc8bdd51dd3ff8e9e9",
-						value: Buffer.from("func").toString("base64"),
-						metadata: {
-							contentType: "application/javascript",
-						},
-						base64: true,
+			let body = (await sortedRequests[0].json()) as UploadPayloadFile[];
+			expect(body).toMatchObject([
+				{
+					key: "09a79777abda8ccc8bdd51dd3ff8e9e9",
+					value: Buffer.from("func").toString("base64"),
+					metadata: {
+						contentType: "application/javascript",
 					},
-				]);
+					base64: true,
+				},
+			]);
 
-				expect(sortedRequests[1].headers).toMatchObject({
-					Authorization: "Bearer <<funfetti-auth-jwt>>",
-				});
+			expect(sortedRequests[1].headers.get("Authorization")).toBe(
+				"Bearer <<funfetti-auth-jwt>>"
+			);
 
-				body = JSON.parse(
-					sortedRequests[1].body as string
-				) as UploadPayloadFile[];
-				expect(body).toMatchObject([
-					{
-						key: "2082190357cfd3617ccfe04f340c6247",
-						value: Buffer.from("foobar").toString("base64"),
-						metadata: {
-							contentType: "image/png",
-						},
-						base64: true,
+			body = (await sortedRequests[1].json()) as UploadPayloadFile[];
+			expect(body).toMatchObject([
+				{
+					key: "2082190357cfd3617ccfe04f340c6247",
+					value: Buffer.from("foobar").toString("base64"),
+					metadata: {
+						contentType: "image/png",
 					},
-				]);
+					base64: true,
+				},
+			]);
 
-				expect(sortedRequests[2].headers).toMatchObject({
-					Authorization: "Bearer <<funfetti-auth-jwt>>",
-				});
+			expect(sortedRequests[3].headers.get("Authorization")).toBe(
+				"Bearer <<funfetti-auth-jwt>>"
+			);
 
-				body = JSON.parse(
-					sortedRequests[2].body as string
-				) as UploadPayloadFile[];
-				expect(body).toMatchObject([
-					{
-						key: "95dedb64e6d4940fc2e0f11f711cc2f4",
-						value: Buffer.from("headersfile").toString("base64"),
-						metadata: {
-							contentType: "application/octet-stream",
-						},
-						base64: true,
+			body = (await sortedRequests[2].json()) as UploadPayloadFile[];
+			expect(body).toMatchObject([
+				{
+					key: "95dedb64e6d4940fc2e0f11f711cc2f4",
+					value: Buffer.from("headersfile").toString("base64"),
+					metadata: {
+						contentType: "application/octet-stream",
 					},
-				]);
-			});
+					base64: true,
+				},
+			]);
 
 			await runWrangler("pages project upload .");
 
