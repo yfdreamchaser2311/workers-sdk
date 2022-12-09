@@ -57,28 +57,28 @@ jest.mock("ws", () => {
 	};
 });
 
-jest.mock("undici", () => {
-	return {
-		...jest.requireActual("undici"),
-		fetch: jest.requireActual("jest-fetch-mock"),
-	};
-});
+// jest.mock("undici", () => {
+// 	return {
+// 		...jest.requireActual("undici"),
+// 		fetch: jest.requireActual("jest-fetch-mock"),
+// 	};
+// });
 
-fetchMock.doMock(() => {
-	// Any un-mocked fetches should throw
-	throw new Error("Unexpected fetch request");
-});
+// fetchMock.doMock(() => {
+// 	// Any un-mocked fetches should throw
+// 	throw new Error("Unexpected fetch request");
+// });
 
 jest.mock("../package-manager");
 
 // requests not mocked with `jest-fetch-mock` fall through
 // to `mock-service-worker`
-fetchMock.dontMock();
+// fetchMock.dontMock();
 beforeAll(() => {
 	msw.listen({
 		onUnhandledRequest: (request) => {
 			throw new Error(
-				`No mock found for ${request.method} ${request.url.href}
+				`No mock found for ${request.method} ${new URL(request.url).href}
 				`
 			);
 		},
