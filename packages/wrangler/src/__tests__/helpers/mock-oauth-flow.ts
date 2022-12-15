@@ -1,4 +1,5 @@
 import fetchMock from "jest-fetch-mock";
+import { rest } from "msw";
 import { Request } from "undici";
 import openInBrowser from "../../open-in-browser";
 import {
@@ -7,6 +8,7 @@ import {
 	setMockResponse,
 } from "./mock-cfetch";
 import { mockHttpServer } from "./mock-http-server";
+import { msw } from "./msw";
 
 export function mockGetMemberships(
 	accounts: { id: string; account: { id: string; name: string } }[]
@@ -186,16 +188,19 @@ export const mockOAuthFlow = () => {
 	}) => {
 		// If the domain relies upon Cloudflare Access, then a request to the domain
 		// will result in a redirect to the `cloudflareaccess.com` domain.
-		fetchMock.mockOnceIf(`https://${domain}/`, async () => {
-			if (usesAccess) {
-				return {
-					status: 302,
-					headers: { location: "cloudflareaccess.com" },
+		msw.use(
+			rest.get(`https://${domain}/`, (req, res, ctx) => {
+				let status = 200;
+				let headers: Record<string, string> = {
+					"Content-Type": "application/json",
 				};
-			} else {
-				return { status: 200 };
-			}
-		});
+				if (usesAccess) {
+					status = 302;
+					headers = { location: "cloudflareaccess.com" };
+				}
+				return res.once(ctx.status(status), ctx.set(headers));
+			})
+		);
 	};
 
 	return {
