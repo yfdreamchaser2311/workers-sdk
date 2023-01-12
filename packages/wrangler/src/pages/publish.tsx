@@ -78,6 +78,11 @@ export function Options(yargs: Argv) {
 				type: "string",
 				hidden: true,
 			},
+			"node-compat": {
+				describe: "Enable node.js compatibility",
+				default: false,
+				type: "boolean",
+			},
 		})
 		.epilogue(pagesBetaWarning);
 }
@@ -93,6 +98,7 @@ export const Handler = async ({
 	bundle,
 	noBundle,
 	config: wranglerConfig,
+	nodeCompat,
 }: PublishArgs) => {
 	if (wranglerConfig) {
 		throw new FatalError("Pages does not support wrangler.toml", 1);
@@ -300,6 +306,12 @@ export const Handler = async ({
 	let filepathRoutingConfig: string | undefined;
 
 	if (!_workerJS && existsSync(functionsDirectory)) {
+		if (nodeCompat) {
+			console.warn(
+				"Enabling node.js compatibility mode for builtins and globals. This is experimental and has serious tradeoffs. Please see https://github.com/ionic-team/rollup-plugin-node-polyfills/ for more details."
+			);
+		}
+
 		const outfile = join(tmpdir(), `./functionsWorker-${Math.random()}.js`);
 		const outputConfigPath = join(
 			tmpdir(),
@@ -319,6 +331,7 @@ export const Handler = async ({
 					project.deployment_configs[isProduction ? "production" : "preview"]
 						.d1_databases ?? {}
 				),
+				nodeCompat,
 			});
 
 			builtFunctions = readFileSync(outfile, "utf-8");

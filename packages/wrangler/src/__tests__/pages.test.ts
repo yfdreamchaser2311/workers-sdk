@@ -352,6 +352,7 @@ describe("pages", () => {
 			      --commit-dirty    Whether or not the workspace should be considered dirty for this deployment  [boolean]
 			      --skip-caching    Skip asset caching which speeds up builds  [boolean]
 			      --no-bundle       Whether to run bundling on \`_worker.js\` before deploying  [boolean] [default: true]
+			      --node-compat     Enable node.js compatibility  [boolean] [default: false]
 
 			🚧 'wrangler pages <command>' is a beta command. Please report any issues to https://github.com/cloudflare/wrangler2/issues/new/choose"
 		`);
