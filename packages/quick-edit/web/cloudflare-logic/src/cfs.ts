@@ -4,7 +4,7 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-
+import { Channel, FromQuickEditMessage, ToQuickEditMessage } from "./ipc";
 import {
 	CancellationToken,
 	Disposable,
@@ -31,6 +31,7 @@ import {
 	Uri,
 	workspace,
 } from "vscode";
+import { WorkerLoadedMessage } from "./ipc";
 
 export class File implements FileStat {
 	type: FileType;
@@ -84,7 +85,18 @@ export class CFS
 
 	private readonly disposable: Disposable;
 
-	constructor() {
+	private readonly channel: ReturnType<
+		typeof Channel<FromQuickEditMessage, ToQuickEditMessage>
+	>;
+
+	private readRoot: ((value: [string, FileType][]) => void) | null = null;
+
+	constructor(
+		channel: ReturnType<
+			typeof Channel<FromQuickEditMessage, ToQuickEditMessage>
+		>
+	) {
+		this.channel = channel;
 		this.disposable = Disposable.from(
 			workspace.registerFileSystemProvider(CFS.scheme, this, {
 				isCaseSensitive: true,
@@ -98,19 +110,17 @@ export class CFS
 		this.disposable?.dispose();
 	}
 
-	seed() {
+	async seed(files: WorkerLoadedMessage["body"]) {
 		this.createDirectory(Uri.parse(`cfs:/worker/`));
-
-		this.writeFile(
-			Uri.parse(`cfs:/worker/file.txt`),
-			textEncoder.encode("foo"),
-			{ create: true, overwrite: true }
+		files.files.forEach(({ path, contents }) =>
+			this.writeFile(Uri.parse(`cfs:/worker${path}`), contents, {
+				create: true,
+				overwrite: true,
+			})
 		);
-		this.writeFile(
-			Uri.parse(`cfs:/worker/file.html`),
-			textEncoder.encode('<html><body><h1 class="hd">Hello</h1></body></html>'),
-			{ create: true, overwrite: true }
-		);
+		if (this.readRoot !== null) {
+			this.readRoot(await this.readDirectory(Uri.parse(`cfs:/worker/`)));
+		}
 	}
 
 	root = new Directory(Uri.parse("cfs:/"), "");
@@ -125,13 +135,17 @@ export class CFS
 		for (const [name, child] of entry.entries) {
 			result.push([name, child.type]);
 		}
-		return new Promise((resolve) => setTimeout(() => resolve(result), 0));
+		if (result.length === 0 && uri === Uri.parse(`cfs:/worker/`)) {
+			return new Promise((resolve) => (this.readRoot = resolve));
+		} else {
+			return result;
+		}
 	}
 
-	readFile(uri: Uri): Promise<Uint8Array> {
+	async readFile(uri: Uri): Promise<Uint8Array> {
 		const data = this._lookupAsFile(uri, false).data;
 		if (data) {
-			return new Promise((resolve) => setTimeout(() => resolve(data), 0));
+			return data;
 		}
 		throw FileSystemError.FileNotFound();
 	}
@@ -156,18 +170,36 @@ export class CFS
 		if (!entry) {
 			entry = new File(uri, basename);
 			parent.entries.set(basename, entry);
+			this.channel.postMessage({
+				type: "CreateFile",
+				body: {
+					path: uri.path.split("/worker")[1],
+					contents: content,
+				},
+			});
 			this._fireSoon({ type: FileChangeType.Created, uri });
 		}
 		entry.mtime = Date.now();
 		entry.size = content.byteLength;
 		entry.data = content;
 
+		this.channel.postMessage({
+			type: "UpdateFile",
+			body: {
+				path: uri.path.split("/worker")[1],
+				contents: content,
+			},
+		});
 		this._fireSoon({ type: FileChangeType.Changed, uri });
 	}
 
 	// --- manage files/folders
 
-	rename(oldUri: Uri, newUri: Uri, options: { overwrite: boolean }): void {
+	async rename(
+		oldUri: Uri,
+		newUri: Uri,
+		options: { overwrite: boolean }
+	): Promise<void> {
 		if (!options.overwrite && this._lookup(newUri, true)) {
 			throw FileSystemError.FileExists(newUri);
 		}
@@ -181,6 +213,20 @@ export class CFS
 		oldParent.entries.delete(entry.name);
 		entry.name = newName;
 		newParent.entries.set(newName, entry);
+
+		this.channel.postMessage({
+			type: "DeleteFile",
+			body: {
+				path: oldUri.path.split("/worker")[1],
+			},
+		});
+		this.channel.postMessage({
+			type: "CreateFile",
+			body: {
+				path: newUri.path.split("/worker")[1],
+				contents: await this.readFile(newUri),
+			},
+		});
 
 		this._fireSoon(
 			{ type: FileChangeType.Deleted, uri: oldUri },

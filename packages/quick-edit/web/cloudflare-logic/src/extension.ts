@@ -1,10 +1,24 @@
 import * as vscode from "vscode";
 import { CFS } from "./cfs";
+import {
+	Channel,
+	FromQuickEditMessage,
+	ToQuickEditMessage,
+	WorkerLoadedMessage,
+} from "./ipc";
 
 export function activate(context: vscode.ExtensionContext) {
-	const cfs = new CFS();
+	const channel = Channel<FromQuickEditMessage, ToQuickEditMessage>(
+		context.messagePassingProtocol!
+	);
+	const cfs = new CFS(channel);
 	context.subscriptions.push(cfs);
-	cfs.seed();
+
+	channel.onMessage((data) => {
+		if (data.type === "WorkerLoaded") {
+			cfs.seed(data.body);
+		}
+	});
 }
 
 export function deactivate() {}
