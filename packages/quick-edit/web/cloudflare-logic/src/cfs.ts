@@ -82,6 +82,7 @@ export class CFS
 		Disposable
 {
 	static scheme = "cfs";
+	private rootFolder = "cfs:/worker";
 
 	private readonly disposable: Disposable;
 
@@ -111,15 +112,25 @@ export class CFS
 	}
 
 	async seed(files: WorkerLoadedMessage["body"]) {
-		this.createDirectory(Uri.parse(`cfs:/worker/`));
-		files.files.forEach(({ path, contents }) =>
-			this.writeFile(Uri.parse(`cfs:/worker${path}`), contents, {
+		this.rootFolder = files.name ?? this.rootFolder;
+		console.log("ROOT", this.rootFolder);
+		this.createDirectory(Uri.parse(`${this.rootFolder}/`));
+		files.files.forEach(({ path, contents }) => {
+			const pathSegments = path.split("/");
+			if (pathSegments.length > 1) {
+				let created = this.rootFolder;
+				for (const path of pathSegments.slice(0, -1)) {
+					created = created + `/${path}`;
+					this.createDirectory(Uri.parse(created));
+				}
+			}
+			this.writeFile(Uri.parse(`${this.rootFolder}/${path}`), contents, {
 				create: true,
 				overwrite: true,
-			})
-		);
+			});
+		});
 		if (this.readRoot !== null) {
-			this.readRoot(await this.readDirectory(Uri.parse(`cfs:/worker/`)));
+			this.readRoot(await this.readDirectory(Uri.parse(`${this.rootFolder}/`)));
 		}
 	}
 
@@ -135,7 +146,7 @@ export class CFS
 		for (const [name, child] of entry.entries) {
 			result.push([name, child.type]);
 		}
-		if (result.length === 0 && uri === Uri.parse(`cfs:/worker/`)) {
+		if (result.length === 0 && uri === Uri.parse(`${this.rootFolder}/`)) {
 			return new Promise((resolve) => (this.readRoot = resolve));
 		} else {
 			return result;
@@ -173,7 +184,7 @@ export class CFS
 			this.channel.postMessage({
 				type: "CreateFile",
 				body: {
-					path: uri.path.split("/worker")[1],
+					path: uri.path.split(this.rootFolder)[1],
 					contents: content,
 				},
 			});
@@ -186,7 +197,7 @@ export class CFS
 		this.channel.postMessage({
 			type: "UpdateFile",
 			body: {
-				path: uri.path.split("/worker")[1],
+				path: uri.path.split(this.rootFolder)[1],
 				contents: content,
 			},
 		});
@@ -217,13 +228,13 @@ export class CFS
 		this.channel.postMessage({
 			type: "DeleteFile",
 			body: {
-				path: oldUri.path.split("/worker")[1],
+				path: oldUri.path.split(this.rootFolder)[1],
 			},
 		});
 		this.channel.postMessage({
 			type: "CreateFile",
 			body: {
-				path: newUri.path.split("/worker")[1],
+				path: newUri.path.split(this.rootFolder)[1],
 				contents: await this.readFile(newUri),
 			},
 		});

@@ -16,6 +16,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	channel.onMessage((data) => {
 		if (data.type === "WorkerLoaded") {
+			console.log("WorkerLoaded", data.body);
 			cfs.seed(data.body);
 		}
 	});

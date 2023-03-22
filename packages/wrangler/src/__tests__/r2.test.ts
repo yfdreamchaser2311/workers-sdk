@@ -18,7 +18,7 @@ describe("r2", () => {
 	runInTempDir();
 
 	describe("bucket", () => {
-		it("should show the correct help when an invalid command is passed", async () => {
+		it.only("should show the correct help when an invalid command is passed", async () => {
 			await expect(() =>
 				runWrangler("r2 bucket foo")
 			).rejects.toThrowErrorMatchingInlineSnapshot(`"Unknown argument: foo"`);

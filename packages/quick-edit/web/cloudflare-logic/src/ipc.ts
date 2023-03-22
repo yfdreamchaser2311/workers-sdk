@@ -6,6 +6,7 @@ export interface EditorMessage<T extends string, B> {
 }
 // Sent on first load of worker
 interface WorkerLoaded {
+	name: string;
 	entrypoint: string;
 	files: {
 		path: string;
