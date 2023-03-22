@@ -35,6 +35,10 @@ export const onRequest = async ({
 					scheme: url.protocol === "https:" ? "https" : "http",
 					path: "/cloudflare-logic",
 				},
+				{
+					scheme: url.protocol === "https:" ? "https" : "http",
+					path: "/solarflare"
+				}
 			],
 		}).replace(/"/g, "&quot;"),
 		WORKBENCH_AUTH_SESSION: "",
