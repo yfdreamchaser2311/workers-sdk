@@ -5,6 +5,7 @@ VERSION=1.76.0
 git clone --depth 1 --branch "$VERSION" https://github.com/microsoft/vscode
 cd vscode
 git apply ../cloudflare.patch
+git apply ../cloudflare-*.patch
 yarn
 yarn gulp vscode-web-min
 cd ..
