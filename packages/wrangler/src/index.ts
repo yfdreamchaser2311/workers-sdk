@@ -194,9 +194,6 @@ const highlight = (text: string, colorHex: string) => {
   ? chalk.hex(colorHex)(text)
   : text;
 
-  // #FF8800
-  // #3B818D
-
   return highlightText;
 }
 
@@ -241,7 +238,7 @@ export function createCLIParser(argv: string[]) {
 		})
 		.option("experimental-json-config", {
 			alias: "j",
-			describe: `Experimental: Support wrangler.json`,
+			describe: `Experimental: support wrangler.json`,
 			type: "boolean",
 		})
 		.check((args) => {
@@ -252,7 +249,8 @@ export function createCLIParser(argv: string[]) {
 			}
 			return true;
 		})
-    .epilogue(`Please report any issues to ${highlight("https://github.com/cloudflare/workers-sdk/issues/new/choose", "#3B818D")}`);
+    .epilogue(`Please report any issues to ${chalk.cyan("https://github.com/cloudflare/workers-sdk/issues/new/choose")}`);
+
 
 	wrangler.group(
 		["experimental-json-config", "config", "env", "help", "version"],
@@ -438,6 +436,13 @@ export function createCLIParser(argv: string[]) {
 		(secretYargs) => {
 			return secret(secretYargs.command(subHelp));
 		}
+	);
+
+  wrangler.command(
+		"secret:bulk <json>",
+		"🔸Bulk upload secrets for a Worker",
+		secretBulkOptions,
+		secretBulkHandler
 	);
 
   // type generation
@@ -662,9 +667,6 @@ export function createCLIParser(argv: string[]) {
 		}
 	);
 
-
-  // LIZ HERE
-
 	// [DEPRECATED] generate
 	wrangler.command(
 		"generate [name] [template]",
@@ -706,13 +708,6 @@ export function createCLIParser(argv: string[]) {
 		// "👷 Create or change your workers.dev subdomain.",
 		subdomainOptions,
 		subdomainHandler
-	);
-
-	wrangler.command(
-		"secret:bulk <json>",
-		"🗄️  Bulk upload secrets for a Worker",
-		secretBulkOptions,
-		secretBulkHandler
 	);
 
 	// This set to false to allow overwrite of default behaviour
