@@ -344,7 +344,7 @@ export function createCLIParser(argv: string[]) {
         })
         .command(
           "list",
-          "🚢 Displays the 10 most recent deployments for a worker",
+          "🔸Displays the 10 most recent deployments for a worker",
           async (listYargs) => listYargs,
           async (listYargs) => {
             const { accountId, scriptName, config } =
@@ -354,7 +354,7 @@ export function createCLIParser(argv: string[]) {
         )
         .command(
           "view [deployment-id]",
-          "🔍 View a deployment",
+          "🔸View a deployment",
           async (viewYargs) =>
             viewYargs.positional("deployment-id", {
               describe: "The ID of the deployment you want to inspect",
