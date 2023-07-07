@@ -1,4 +1,5 @@
 import { rest } from "msw";
+import { describe, beforeEach, afterEach, it, expect } from "vitest";
 import { writeAuthConfigFile } from "../user";
 import { getUserInfo } from "../whoami";
 import { mockConsoleMethods } from "./helpers/mock-console";
@@ -17,10 +18,10 @@ describe("getUserInfo()", () => {
 	runInTempDir();
 	const std = mockConsoleMethods();
 	const { setIsTTY } = useMockIsTTY();
+	setIsTTY(true);
 
 	beforeEach(() => {
 		msw.use(...mswSuccessOauthHandlers, ...mswSuccessUserHandlers);
-		setIsTTY(true);
 	});
 
 	afterEach(() => {
