@@ -1,5 +1,15 @@
 # create-cloudflare
 
+## 2.0.12
+
+### Patch Changes
+
+- [#3525](https://github.com/cloudflare/workers-sdk/pull/3525) [`1ce32968`](https://github.com/cloudflare/workers-sdk/commit/1ce32968b990fef59953b8cd61172b98fb2386e5) Thanks [@jculvey](https://github.com/jculvey)! - C3: Infer missing --type argument from --framework or --existing-script
+
+* [#3551](https://github.com/cloudflare/workers-sdk/pull/3551) [`137e174d`](https://github.com/cloudflare/workers-sdk/commit/137e174d79e7c5779c24de904d3cd958587a87c7) Thanks [@yusukebe](https://github.com/yusukebe)! - fix: bump up `create-hono` version
+
+  Bump up `create-hono` version to latest v0.2.6 for C3.
+
 ## 2.0.11
 
 ### Patch Changes
